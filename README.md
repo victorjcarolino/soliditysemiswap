@@ -81,3 +81,35 @@
    - **Usage**: Users use this function to predict the amount of ERC20 tokens they would receive before performing the swap
 
    - **Returns**: The function returns a uint representing the amount of ERC20 tokens that the caller would receive
+# Educational constant-product exchange
+
+Coursework prototype for learning Solidity, ERC-20 interaction, liquidity accounting, and swaps. This fork retains the original team assignment; it is **not audited, production-ready, or suitable for real funds**.
+
+## Cleanup and local checks
+
+The current source fixes proportional share issuance using the pre-deposit reserve, rejects zero-share deposits, uses a consistent 0.1% ratio tolerance, and adds caller-selected minimum output and deadline checks to both swap directions.
+
+This intentionally changes the swap ABI:
+
+- `swapForEth(amountERC20Token, minEthOut, deadline)`
+- `swapForERC20Token(minTokenOut, deadline)` with ETH sent as value
+
+The historical assignment signatures below are superseded by these signatures. Deadlines are Unix timestamps in seconds. A minimum output of zero opts out of meaningful slippage protection.
+
+```sh
+npm ci --ignore-scripts
+npm test
+```
+
+Tests compile the actual contract and deploy it to an ephemeral in-process Ganache chain with a test ERC-20. No wallet credentials, external chain, or real funds are used. The test-only legacy Ganache toolchain has dependency audit findings; do not expose it as a network service or use it in a production application.
+
+## Remaining limitations
+
+- Broader invariant/fuzz tests, adversarial-token tests, and independent review are still needed.
+- The current rounding policy and liquidity initialization remain educational simplifications.
+- The implementation assumes standard ERC-20 behavior; fee-on-transfer and rebasing tokens are outside its intended scope.
+- Historical addresses below are assignment references, not endorsed deployment targets.
+
+Keep this as a learning artifact rather than a security portfolio flagship. Do not infer financial safety from successful compilation. Preserve original team attribution.
+
+## Original assignment documentation

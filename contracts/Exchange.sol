@@ -50,14 +50,14 @@ contract Exchange {
             /// for extracting value from this mechanism, the gas required to complete this attack would 
             /// outweigh the potential gains for our purposes
             uint epsilon;
-            uint ceiling; // The ceiling is 1% of the greater product
+            uint ceiling; // The ceiling is 0.1% of the greater product
             // Ensure that the ratio of ETH to ERC20 is maintained with allowance for small epsilon deviation
             if ((_amountERC20Token * weiReserve) < (msg.value * tokenReserve)) {
                 ceiling = (msg.value * tokenReserve) / 1000;
                 epsilon = (msg.value * tokenReserve) - (_amountERC20Token * weiReserve);
             }
             else if ((_amountERC20Token * weiReserve) > (msg.value * tokenReserve)) {
-                ceiling = (_amountERC20Token * weiReserve) / 100;
+                ceiling = (_amountERC20Token * weiReserve) / 1000;
                 epsilon = (_amountERC20Token * weiReserve) - (msg.value * tokenReserve);
             }
             else {
@@ -67,8 +67,9 @@ contract Exchange {
             require(epsilon <= ceiling, "Error: Must maintain Wei/ERC20 ratio");
 
             // Calculate liquidity based on the proportional amount of ETH deposited
-            liquidity = totalLiquidityPositions * _amountERC20Token / erc20Token.balanceOf(address(this));
+            liquidity = totalLiquidityPositions * _amountERC20Token / erc20BalanceBefore;
         }
+        require(liquidity > 0, "Error: Deposit would mint zero liquidity positions");
         liquidityPositions[msg.sender] += liquidity;
         totalLiquidityPositions += liquidity;
 
@@ -135,7 +136,8 @@ contract Exchange {
         emit LiquidityWithdrew(amountERC20ToSend, amountEthToSend, _liquidityPositionsToBurn);
     }
 
-    function swapForEth(uint _amountERC20Token) public returns (uint ethToSend) {
+    function swapForEth(uint _amountERC20Token, uint minEthOut, uint deadline) public returns (uint ethToSend) {
+        require(block.timestamp <= deadline, "Error: Swap expired");
         uint contractEthBalance = address(this).balance;
         uint contractERC20TokenBalance = erc20Token.balanceOf(address(this));
 
@@ -152,6 +154,7 @@ contract Exchange {
 
         // Checks to prevent swaps that would result in no ETH sent to the user
         require(ethToSend > 0 && ethToSend <= contractEthBalance, "Error: Invalid swap request");
+        require(ethToSend >= minEthOut, "Error: Minimum output not met");
 
         // Send ETH to the user
         payable(msg.sender).transfer(ethToSend);
@@ -179,11 +182,13 @@ contract Exchange {
         return ethToSend;
     }
 
-    function swapForERC20Token() public payable returns (uint ERC20TokenToSend) {
+    function swapForERC20Token(uint minTokenOut, uint deadline) public payable returns (uint ERC20TokenToSend) {
+        require(block.timestamp <= deadline, "Error: Swap expired");
         require(msg.value > 0, "Error: Must deposit more than 0 Wei.");
         uint contractERC20TokenBalance = erc20Token.balanceOf(address(this));
         uint contractERC20TokenBalanceAfterSwap = K / (address(this).balance);
         ERC20TokenToSend = contractERC20TokenBalance - contractERC20TokenBalanceAfterSwap;
+        require(ERC20TokenToSend > 0 && ERC20TokenToSend >= minTokenOut, "Error: Minimum output not met");
 
         // Transfer ERC20 tokens from the contract to the caller
         require(erc20Token.transfer(msg.sender, ERC20TokenToSend), "Error: Failed to send ERC20 tokens");
