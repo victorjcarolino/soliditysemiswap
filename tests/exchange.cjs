@@ -46,7 +46,12 @@ const chain = ganache.provider({ logging: { quiet: true }, wallet: { totalAccoun
   assert.equal(await exchange.totalLiquidityPositions(), 100n);
   await (await exchange.provideLiquidity(parseEther('100'), { value: parseEther('10') })).wait();
   assert.equal(await exchange.totalLiquidityPositions(), 200n, 'equal deposit must mint equal shares');
-  await assert.rejects(() => exchange.provideLiquidity.staticCall(1n, { value: 1n }));
+  await assert.rejects(() => exchange.provideLiquidity.staticCall(10n, { value: 1n }),
+                       /zero liquidity positions/);
+  await assert.rejects(() => exchange.provideLiquidity.staticCall(parseEther('100.5'), { value: parseEther('10') }),
+                       /maintain Wei\/ERC20 ratio/);
+  await assert.rejects(() => exchange.provideLiquidity.staticCall(parseEther('99.5'), { value: parseEther('10') }),
+                       /maintain Wei\/ERC20 ratio/);
   const deadline = BigInt((await provider.getBlock('latest')).timestamp + 3600);
   const outEth = await exchange.estimateSwapForEth(parseEther('1'));
   await assert.rejects(() => exchange.swapForEth.staticCall(parseEther('1'), outEth + 1n, deadline));
